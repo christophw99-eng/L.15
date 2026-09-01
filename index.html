@@ -683,6 +683,10 @@ async function blobUrl(key) {
     if (!KEY) throw new Error('gesperrt');
     const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv: arr.slice(0,12) }, KEY, arr.slice(12));
     arr = new Uint8Array(plain);
+  } else if (m.g) {
+    if (!LKEYS[key]) throw new Error('gesperrt');
+    const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv: arr.slice(0,12) }, LKEYS[key], arr.slice(12));
+    arr = new Uint8Array(plain);
   }
   BLOBS[key] = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
   return BLOBS[key];
