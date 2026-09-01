@@ -813,12 +813,16 @@ async function leiteKey(pw, kdf) {
   if (new TextDecoder().decode(plain) !== 'L15-OK') throw new Error('nope');
   return k;
 }
+function loesWort(s) { return String(s || '').toUpperCase().replace(/[^A-Z]/g, ''); }
 async function loesAutoUnlock() {
   if (!(window.crypto && crypto.subtle)) return;
   const gespeichert = loesPws();
   for (const key of Object.keys(gespeichert)) {
     if (!LKDF[key]) continue;
-    try { LKEYS[key] = await leiteKey(gespeichert[key], LKDF[key]); } catch (e) {}
+    try { LKEYS[key] = await leiteKey(gespeichert[key], LKDF[key]); }
+    catch (e) {
+      try { LKEYS[key] = await leiteKey(loesWort(gespeichert[key]), LKDF[key]); } catch (e2) {}
+    }
   }
   renderAll();
 }
@@ -836,7 +840,7 @@ async function loesOeffnen() {
   const key = LOCK_ZIEL, msg = document.getElementById('lock-msg');
   if (!key) return;
   if (!(window.crypto && crypto.subtle)) { msg.textContent = 'Dieser Browser kann das nicht öffnen.'; return; }
-  const pw = document.getElementById('lock-pw').value.trim();
+  const pw = loesWort(document.getElementById('lock-pw').value);
   if (!pw) return;
   msg.textContent = 'einen Moment …';
   try {
@@ -844,7 +848,14 @@ async function loesOeffnen() {
     loesPwSpeichern(key, pw);
     loesSchliessen(); renderAll(); openMat([key]);
   } catch (e) {
-    msg.textContent = 'Das Wort stimmt nicht.';
+    let anderes = null;
+    for (const k of Object.keys(LKDF)) {
+      if (k === key) continue;
+      try { await leiteKey(pw, LKDF[k]); anderes = k; break; } catch (e2) {}
+    }
+    msg.textContent = anderes
+      ? 'Dieses Wort öffnet „' + MAT[anderes].t + '“, nicht dieses Blatt.'
+      : 'Das Wort stimmt nicht.';
     document.getElementById('lock-pw').select();
   }
 }
